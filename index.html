@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cupid Task v13.0 - 1080p Fixed</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #2c3e50; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: white; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        #gameCanvas { 
+            background-color: #34495e; 
+            box-shadow: 0 0 20px rgba(37, 21, 21, 0.5); 
+            border-radius: 8px; 
+            /* [修改] 强制固定 CSS 尺寸为 1920x1080，不进行任何缩放 */
+            width: 1300;
+            height: 900px;
+            position: absolute;
+        }
+        #startScreen, #endScreen { position: absolute; background: rgba(44, 62, 80, 0.98); padding: 25px; border-radius: 15px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index: 10; min-width: 500px; max-height: 90vh; overflow-y: auto; }
+        h1 { margin-bottom: 10px; color: #e74c3c; font-size: 22px; }
+        .row { display: flex; gap: 10px; margin-bottom: 10px; }
+        .col { flex: 1; text-align: left; background: rgba(0,0,0,0.2); padding: 8px; border-radius: 5px; }
+        label { display: block; margin-bottom: 3px; font-weight: bold; color: #ecf0f1; font-size: 12px; }
+        input, select { width: 100%; padding: 6px; border: none; border-radius: 4px; font-size: 14px; box-sizing: border-box; background-color: #ecf0f1; color: #2c3e50; }
+        input:disabled { background-color: #7f8c8d; color: #7f8c8d; cursor: not-allowed; }
+        button { background-color: #27ae60; color: white; border: none; padding: 12px 30px; font-size: 18px; border-radius: 5px; cursor: pointer; transition: background 0.3s; margin-top: 10px; width: 100%; font-weight: bold; }
+        button:hover { background-color: #2ecc71; }
+        #hud { position: fixed; top: 20px; left: 20px; font-size: 16px; pointer-events: none; text-shadow: 1px 1px 2px black; line-height: 1.4; }
+        #instruction { position: absolute; bottom: 20px; width: 100%; text-align: center; color: #bdc3c7; pointer-events: none; }
+    </style>
+</head>
+<body>
+                    
+    <div id="startScreen">
+        <h1>💘 Cupid Task v13 (1200x800)</h1>
+        <button id="fullscreenButton">Toggle Full Screen</button>
+
+        <div class="row">
+            <label>Thank you for participating to our experiance 😊 </label>
+        </div>
+        <div class="row">
+            <label> Please use a computer mouse for this experiment</label>
+        </div>
+        <div class="row">
+            <label> Then redo the experiment, after at least 8 hours and chose the other Flow</label>
+        </div>
+        <div class="row">
+            <label> Once you finished the experiment, please send us the downloaded excel files</label>
+        </div>
+        <div class="row">
+            <label> Thank you for your help! XOXO Leah and Alex</label>
+        </div>
+        <div class="row">
+            <div class="col"><label>1. Subject ID:</label><input type="text" id="subjectName" placeholder="Sub_001"></div>
+            <div class="col"><label>2. Phase:</label>
+                <select id="phaseSelect" onchange="updatePhaseSettings()">
+                    <option value="Control">Control</option>
+                    <option value="Flow A; Block 1">Flow A; Block 1</option>
+                    <option value="Flow A; Block 2">Flow A; Block 2</option>
+                    <option value="Flow A; Block 3">Flow A; Block 3</option>
+                    <option value="Flow A; Block 4">Flow A; Block 4</option>
+                    <option value="Flow A; Block 5">Flow A; Block 5</option>
+                    <option value="Flow B; Block 1">Flow B; Block 1</option>
+                    <option value="Flow B; Block 2">Flow B; Block 2</option>
+                    <option value="Flow B; Block 3">Flow B; Block 3</option>
+                    <option value="Flow B; Block 4">Flow B; Block 4</option>
+                    <option value="Flow B; Block 5">Flow B; Block 5</option>
+                    <option value="Play" selected>Play</option>
+                </select>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col"><label>3. Input Device:</label>
+                <select id="inputType"><option value="Mouse">Mouse</option><option value="Joystick">Joystick</option></select>
+            </div>
+            <div class="col"><label>4. Total Trials:</label><input type="number" id="trialLimit" value="60"></div>
+        </div>
+        <div class="row">
+            <div class="col"><label>Target Speed:</label><input type="number" id="targetSpeedInput" value="3"></div>
+            <div class="col"><label>Target Size (Radius):</label><input type="number" id="targetSizeInput" value="50"></div>
+        </div>
+        <div class="row">
+            <div class="col"><label>Spatial Bias (Degree):</label><input type="number" id="biasInput" value="0"></div>
+            <div class="col"><label>Time Lag (ms):</label><input type="number" id="lagInput" value="0"></div>
+        </div>
+        <button onclick="startGame()">Start Experiment</button>
+    </div>
+
+    <div id="endScreen" style="display:none;">
+        <h2>Experiment Complete!</h2>
+        <p>Data download should start automatically.</p>
+        <button onclick="location.reload()">Reset</button>
+    </div>
+
+    
+
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="hud" style="display:none; top: 20px; left: 20px;">
+        Sub: <span id="hudSub">--</span> | Phase: <span id="hudPhase">--</span><br>
+        Trial: <span id="trialCount">0</span> / <span id="trialMax">0</span><br>
+        Source: <span id="hudSide">--</span><br>
+        Score: <span id="lastScore">--</span>
+    </div>
+
+    <div id="instruction" style="display:none; bottom: 20px;">Aim (Left is 0°) and Shoot</div>
+
+    <script>
+        const fullscreenButton = document.getElementById('fullscreenButton');
+
+        fullscreenButton.addEventListener('click', () => {
+            if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(err => {
+                console.error(`Error attempting to enable fullscreen: ${err.message}`);
+            });
+            } else {
+            document.exitFullscreen();
+            }
+        });
+
+        let CONFIG = { subject: "", phase: "Control", device: "", bias: 0, lag: 0, maxTrials: 30, targetSpeed: 2, targetSize: 50, sigma: 60, arrowSpeed: 15 };
+        let dataLog = [];
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        let audioCtx;
+        function initAudio() { if(!audioCtx) audioCtx = new AudioCtx(); if(audioCtx.state === 'suspended') audioCtx.resume(); }
+        function playSound(type) {
+            if(!audioCtx) return;
+            const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            const now = audioCtx.currentTime;
+            if (type === 'click') { osc.type = 'square'; osc.frequency.setValueAtTime(800, now); osc.frequency.exponentialRampToValueAtTime(100, now + 0.05); gain.gain.setValueAtTime(0.1, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.05); osc.start(now); osc.stop(now + 0.05); }
+            else if (type === 'whoosh') { osc.type = 'triangle'; osc.frequency.setValueAtTime(200, now); osc.frequency.exponentialRampToValueAtTime(800, now + 0.2); gain.gain.setValueAtTime(0.0, now); gain.gain.linearRampToValueAtTime(0.1, now + 0.1); gain.gain.linearRampToValueAtTime(0.0, now + 0.3); osc.start(now); osc.stop(now + 0.3); }
+            else if (type === 'hit') { osc.type = 'sine'; osc.frequency.setValueAtTime(1200, now); osc.frequency.exponentialRampToValueAtTime(1800, now + 0.1); gain.gain.setValueAtTime(0.2, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5); osc.start(now); osc.stop(now + 0.5); }
+            else if (type === 'miss') { osc.type = 'sawtooth'; osc.frequency.setValueAtTime(150, now); osc.frequency.linearRampToValueAtTime(100, now + 0.3); gain.gain.setValueAtTime(0.1, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.3); osc.start(now); osc.stop(now + 0.3); }
+        }
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // [修改] 移除了 resize 函数，强制设定分辨率
+        canvas.width = 1000;
+        canvas.height = 800;
+
+        console.log(canvas.height)
+
+        const hud = document.getElementById('hud');   
+        const inst = document.getElementById('instruction');                
+              
+        requestAnimationFrame(() => {
+            const canvasRect = canvas.getBoundingClientRect();
+            hud.style.left = (canvasRect.left + 20) + 'px';
+            hud.style.top  = (canvasRect.top  + 20) + 'px';
+            inst.style.bottom = (canvasRect.bottom  + 20) + 'px';
+
+            });
+        // 原来的 resize() 监听器已删除
+
+        let state = { phase: 'aiming', trials: 0, trialStartTime: 0, triggerTime: 0, joystickRT: 0, inputAngleMath: 0, lockedAngleMath: 0, target: { x: 0, y: 0, vx: 0, vy: 0, theta: 0, initX: 0, initY: 0, side: "" }, arrow: { x: 0, y: 0, vx: 0, vy: 0 }, releaseTime: 0, flightAngleMath: 0, trajDistance: 0, score: 0, gamepadLocked: false, feedbackTimer: 0 };
+
+        function updatePhaseSettings() {
+            const phase = document.getElementById('phaseSelect').value;
+            const bias = document.getElementById('biasInput'); const lag = document.getElementById('lagInput');
+            const maxTrials = document.getElementById('trialLimit');
+            if (phase === 'Control') { bias.value = 0; lag.value = 0; bias.disabled = true; lag.disabled = true; }
+            else if (phase === 'Flow A; Block 1') { bias.value = 15; lag.value = 0; bias.disabled = true; lag.disabled = true; }
+            else if (phase === 'Flow A; Block 2') { bias.value = 15; lag.value = 200; maxTrials.value = 80; bias.disabled = true; lag.disabled = true; }
+            else if (phase === 'Flow A; Block 3') { bias.value = 15; lag.value = 400; maxTrials.value = 80; bias.disabled = true; lag.disabled = true; }
+            else if (phase === 'Flow A; Block 4') { bias.value = 15; lag.value = 600; maxTrials.value = 80; bias.disabled = true; lag.disabled = true; }
+            else if (phase === 'Flow A; Block 5') { bias.value = 15; lag.value = 800; maxTrials.value = 80; bias.disabled = true; lag.disabled = true; }
+            else if (phase === 'Flow B; Block 1') { bias.value = 0; lag.value = 300; bias.disabled = true; lag.disabled = true; }
+            else if (phase === 'Flow B; Block 2') { bias.value = 15; lag.value = 300; maxTrials.value = 80; bias.disabled = true; lag.disabled = true; }
+            else if (phase === 'Flow B; Block 3') { bias.value = 30; lag.value = 300; maxTrials.value = 80; bias.disabled = true; lag.disabled = true; }
+            else if (phase === 'Flow B; Block 4') { bias.value = 45; lag.value = 300; maxTrials.value = 80; bias.disabled = true; lag.disabled = true; }
+            else if (phase === 'Flow B; Block 5') { bias.value = 60; lag.value = 300; maxTrials.value = 80; bias.disabled = true; lag.disabled = true; }
+            else { bias.disabled = false; lag.disabled = false; if(parseFloat(bias.value) === 0) bias.value = 30; if(parseFloat(lag.value) === 0) lag.value = 400; }
+        }
+
+        function startGame() {
+            CONFIG.subject = document.getElementById('subjectName').value || "Anonymous"; CONFIG.phase = document.getElementById('phaseSelect').value; CONFIG.device = document.getElementById('inputType').value; CONFIG.bias = parseFloat(document.getElementById('biasInput').value); CONFIG.lag = parseFloat(document.getElementById('lagInput').value); CONFIG.maxTrials = parseInt(document.getElementById('trialLimit').value);
+            CONFIG.targetSpeed = parseFloat(document.getElementById('targetSpeedInput').value); CONFIG.targetSize = parseFloat(document.getElementById('targetSizeInput').value); CONFIG.variance = 0.5;
+            initAudio(); document.getElementById('startScreen').style.display = 'none'; document.getElementById('hud').style.display = 'block'; document.getElementById('instruction').style.display = 'block';
+            document.getElementById('hudSub').innerText = CONFIG.subject; document.getElementById('hudPhase').innerText = CONFIG.phase; document.getElementById('trialMax').innerText = CONFIG.maxTrials;
+            resetTrial(); requestAnimationFrame(gameLoop);
+            const canvas = document.getElementById('gameCanvas');
+            const ctx = canvas.getContext('2d');
+            
+
+
+            const hud = document.getElementById('hud'); 
+            const inst = document.getElementById('instruction');                
+            requestAnimationFrame(() => {
+                const canvasRect = canvas.getBoundingClientRect();
+                hud.style.left = (canvasRect.left + 20) + 'px';
+                hud.style.top  = (canvasRect.top  + 20) + 'px';
+                inst.style.bottom = (canvasRect.bottom  + 20) + 'px';
+                });
+        }
+
+        function ensureTrajectoryLength(x, y, angleDeg, minDistance, side) {
+            const angleRad = angleDeg * (Math.PI / 180);
+            const dx = Math.cos(angleRad);
+            const dy = Math.sin(angleRad);
+
+            // Calculate the distance to the edge in the direction of movement
+            let distanceToEdge;
+
+            if (dx > 0) {
+                // Moving right: distance to right edge
+                distanceToEdge = (canvas.width - x) / Math.abs(dx);
+            } else if (dx < 0) {
+                // Moving left: distance to left edge
+                distanceToEdge = x / Math.abs(dx);
+            } else {
+                // Not moving horizontally: distance is effectively infinite
+                distanceToEdge = Infinity;
+            }
+
+            if (dy > 0) {
+                // Moving down: distance to bottom edge
+                const distanceToBottom = (canvas.height - y) / Math.abs(dy);
+                distanceToEdge = Math.min(distanceToEdge, distanceToBottom);
+            } else if (dy < 0) {
+                // Moving up: distance to top edge
+                const distanceToTop = y / Math.abs(dy);
+                distanceToEdge = Math.min(distanceToEdge, distanceToTop);
+            }
+            // If the trajectory is too short, adjust the angle to make it longer
+            if (distanceToEdge < minDistance) {
+                // Adjust the angle to ensure the trajectory is at least minDistance
+                // For simplicity, we'll adjust the angle to make the path more diagonal
+                // You can customize this logic based on your needs
+                if (side === "Left") {
+                    newAngleDeg = Math.random() * 40 - 20;
+                } else if (side === "Right") {
+                    newAngleDeg = 180 + (Math.random() * 40 - 20);
+                } else {
+                    let destX = Math.random() < 0.5 ? 0 : canvas.width;
+                    let destY = canvas.height - 100;
+                    newAngleDeg = Math.atan2(destY - state.target.y, destX - state.target.x) * (180/Math.PI);
+                }
+                console.log("Too short !");
+                return ensureTrajectoryLength(x, y, newAngleDeg, minDistance, side);
+            };
+            return angleDeg;
+        }
+
+        function resetTrial() {
+            if (state.trials >= CONFIG.maxTrials) { endExperiment(); return; }
+            state.phase = 'aiming'; state.joystickRT = 0; state.trialStartTime = performance.now();
+            
+            let roll = Math.random();
+            if (roll < 0.33) state.target.side = "Left";
+            else if (roll < 0.66) state.target.side = "Right";
+            else state.target.side = "Top";
+            
+            document.getElementById('hudSide').innerText = state.target.side;
+            const speed = CONFIG.targetSpeed + (Math.random() - 0.5);
+            console.log(speed);
+            state.target.speed = speed;
+            console.log(state.target.speed);
+            let thetaDeg;
+
+            if (state.target.side === "Left") {
+                state.target.x = 0;
+                state.target.y = Math.random() * (canvas.height * 0.45) + (canvas.height * 0.15);
+                thetaDeg = Math.random() * 40 - 20;
+            } else if (state.target.side === "Right") {
+                state.target.x = canvas.width;
+                state.target.y = Math.random() * (canvas.height * 0.45) + (canvas.height * 0.15);
+                thetaDeg = 180 + (Math.random() * 40 - 20);
+            } else {
+                state.target.x = Math.random() * (canvas.width * 0.6) + (canvas.width * 0.2);
+                state.target.y = 0;
+                let destX = Math.random() < 0.5 ? 0 : canvas.width;
+                let destY = canvas.height - 100;
+                thetaDeg = Math.atan2(destY - state.target.y, destX - state.target.x) * (180/Math.PI);
+                state.target.side = (destX === 0) ? "Top-Left" : "Top-Right";
+                document.getElementById('hudSide').innerText = state.target.side;
+            }
+            thetaDeg =  ensureTrajectoryLength(state.target.x, state.target.y, thetaDeg, canvas.height, state.target.side);
+
+            state.target.initX = state.target.x;
+            state.target.initY = state.target.y;
+            const theta = thetaDeg * (Math.PI / 180);
+            state.target.vx = Math.cos(theta) * speed;
+            state.target.vy = Math.sin(theta) * speed;
+            state.target.theta = thetaDeg;
+            state.arrow.x = canvas.width / 2; state.arrow.y = canvas.height - 100;
+        }
+
+        function toUserAngle(mathRadians) {
+            let deg = mathRadians * (180 / Math.PI);
+            let userDeg = (deg + 180) % 360;
+            if (userDeg < 0) userDeg += 360;
+            return userDeg;
+        }
+
+        function handleInput() {
+            if (state.phase !== 'aiming') return;
+            const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+            const gp = gamepads[0];
+            if (gp) {
+                if (Math.abs(gp.axes[0]) > 0.1 || Math.abs(gp.axes[1]) > 0.1) { state.inputAngleMath = Math.atan2(gp.axes[1], gp.axes[0]); }
+                if (CONFIG.device === 'Joystick' && (gp.buttons[0].pressed || gp.buttons[1].pressed)) { if (!state.gamepadLocked) { triggerAction(); state.gamepadLocked = true; } } else { state.gamepadLocked = false; }
+            } 
+            if (CONFIG.device === 'Mouse') { 
+                const dx = mouseX - state.arrow.x; 
+                const dy = mouseY - state.arrow.y; 
+                state.inputAngleMath = Math.atan2(dy, dx); 
+            }
+        }
+        
+        let mouseX=0, mouseY=0; 
+        // [修改] 使用 offsetX/Y 替代 clientX/Y，以确保固定分辨率居中显示时鼠标位置正确
+        // 这不是缩放，而是获取相对于画布的准确坐标
+        canvas.addEventListener('mousemove', e => { mouseX=e.offsetX; mouseY=e.offsetY; });
+        canvas.addEventListener('mousedown', () => { if(state.phase === 'aiming' && CONFIG.device === 'Mouse') triggerAction(); });
+
+        function triggerAction() { 
+            state.phase = 'trigger_wait'; 
+            state.triggerTime = performance.now(); 
+            state.joystickRT = Math.round(state.triggerTime - state.trialStartTime); 
+            // Removed HUD RT display to avoid confusion between two RTs
+            state.lockedAngleMath = state.inputAngleMath; 
+            playSound('click'); 
+        }
+
+        function update() {
+            const now = performance.now();
+            if (state.phase !== 'feedback') {
+                state.target.x += state.target.vx; state.target.y += state.target.vy;
+                let isOut = false;
+                if (state.target.x > canvas.width || state.target.x < 0 || state.target.y > canvas.height || state.target.y < 0) isOut = true;
+                if (isOut) finishTrial(0, 1000); 
+            }
+            if (state.phase === 'aiming') { handleInput(); }
+            else if (state.phase === 'trigger_wait') { 
+                if (now - state.triggerTime >= CONFIG.lag) { 
+                    state.phase = 'flying'; 
+                    state.releaseTime = now; 
+                    playSound('whoosh'); 
+                    const biasRad = CONFIG.bias * (Math.PI / 180); 
+                    state.flightAngleMath = state.lockedAngleMath + biasRad; 
+                    state.arrow.vx = Math.cos(state.flightAngleMath) * CONFIG.arrowSpeed; 
+                    state.arrow.vy = Math.sin(state.flightAngleMath) * CONFIG.arrowSpeed; 
+                } 
+            }
+
+            else if (state.phase === 'flying') {
+                dx = state.arrow.vx; dy = state.arrow.vy;
+                x = state.arrow.x; y = state.arrow.y;
+                tx = state.target.x; ty = state.target.y;
+                
+                if (distToPoint(tx, x + dx, ty, y + dy) < CONFIG.targetSize * 2.75 && distToPoint(tx, x, ty, y) < distToPoint(tx, x + dx, ty, y + dy)){
+                    const score = calculateTrajectoryScore(); finishTrial(score, 1000);
+                }
+                state.arrow.x += state.arrow.vx; state.arrow.y += state.arrow.vy;
+                const isOutOfBounds = (state.arrow.x < 0 || state.arrow.x > canvas.width || state.arrow.y < 0 || state.arrow.y > canvas.height);
+                if (isOutOfBounds){
+                    const score = calculateTrajectoryScore(); finishTrial(score, 1000);
+                }
+            }
+            else if (state.phase === 'feedback') { if (now > state.feedbackTimer) resetTrial(); }
+        }
+
+        function distToPoint(x1, x2, y1, y2){
+            return Math.sqrt(Math.pow(x2-x1, 2) + Math.pow(y2-y1, 2))
+        }
+  
+
+        function calculateTrajectoryScore() {
+            const startX = canvas.width / 2; const startY = canvas.height - 100;
+            const tx = state.target.x; const ty = state.target.y;
+            const ax = state.arrow.x; const ay = state.arrow.y;
+            const distToTarget = distToPoint(tx, ax, ty, ay);
+            state.trajDistance = distToTarget; 
+
+            // we want the score for the distance to target = 3 target size to be of 1
+            let score = 100 * Math.exp(- Math.pow(distToTarget / CONFIG.targetSize, 2) / (2 * CONFIG.variance ));
+            return Math.round(score);
+        }
+
+        function finishTrial(score, delay) {
+            if (state.phase === 'feedback') return;
+            state.phase = 'feedback'; state.score = score; state.trials++; state.feedbackTimer = performance.now() + delay;
+            if (score > 90) playSound('hit'); else if (score > 50) playSound('whoosh'); else playSound('miss');
+            document.getElementById('trialCount').innerText = state.trials; document.getElementById('lastScore').innerText = score;
+            
+            const userJoystickAng = toUserAngle(state.lockedAngleMath); 
+            const userArrowAng = toUserAngle(state.flightAngleMath);
+            const arrowRT = state.joystickRT + CONFIG.lag;
+            const arrowInitX = canvas.width / 2;
+            const arrowInitY = canvas.height - 100;
+
+            // --- [MODIFIED] ROW DATA STRUCTURE ---
+            // 1. Trial No
+            // 2. Degree (was Bias)
+            // 3. Lag
+            // 4. Target info...
+            // 5. Joystick RT, Arrow RT, Arrow Info...
+            let row = { 
+                "Trial No.": state.trials, 
+                "Degree": CONFIG.bias, 
+                "Lag": CONFIG.lag, 
+                "Target Init X": state.target.initX.toFixed(0), 
+                "Target Init Y": state.target.initY.toFixed(0), 
+                "Target Speed": state.target.speed.toFixed(4), 
+                "target angle": state.target.theta.toFixed(1),
+                "Joystick RT": state.joystickRT, 
+                "Arrow RT": arrowRT,
+                "Arrow Speed": CONFIG.arrowSpeed,
+                "Arrow Init X": arrowInitX.toFixed(0),
+                "Arrow Init Y": arrowInitY.toFixed(0),
+                "Joystick angle": userJoystickAng.toFixed(1), 
+                "Arrow angle": userArrowAng.toFixed(1), 
+                "d min": state.trajDistance.toFixed(1), 
+                "Score": score, 
+                "Phase Tag": CONFIG.phase 
+            };
+            dataLog.push(row);
+        }
+
+        function endExperiment() { document.getElementById('endScreen').style.display = 'block'; document.getElementById('hud').style.display = 'none'; downloadCSV(); }
+
+        let isDownloading = false;
+
+        function downloadCSV() {
+            if (isDownloading || dataLog.length === 0) return;
+            isDownloading = true;
+            const headers = Object.keys(dataLog[0]);
+            let csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n";
+            dataLog.forEach(rowObj => { let row = headers.map(header => rowObj[header]).join(","); csvContent += row + "\n"; });
+            const encodedUri = encodeURI(csvContent); const link = document.createElement("a"); link.setAttribute("href", encodedUri);
+            const timestamp = new Date().toISOString().slice(0,19).replace(/:/g,"-"); const filename = `${CONFIG.subject}_${CONFIG.phase}_v13_${timestamp}.csv`;
+            link.setAttribute("download", filename); document.body.appendChild(link); link.click(); document.body.removeChild(link);
+        }
+
+        function draw() {
+            ctx.fillStyle = '#34495e'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            console.log(canvas.height)
+            const cx = canvas.width / 2; const cy = canvas.height - 100;
+            drawHeart(state.target.x, state.target.y, CONFIG.targetSize, '#e74c3c');
+            
+            // Aiming Line (Still Visible)
+            const barLen = 70;
+            ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(state.inputAngleMath) * barLen, cy + Math.sin(state.inputAngleMath) * barLen);
+            ctx.lineWidth = 6; ctx.strokeStyle = '#ff7979'; ctx.stroke();
+            
+            if (state.phase === 'flying' || state.phase === 'feedback') {
+                // [MODIFIED] Trace drawing removed completely here
+                drawArrow(state.arrow.x, state.arrow.y, Math.atan2(state.arrow.vy, state.arrow.vx));
+            }
+            
+            if (state.phase === 'feedback') { ctx.fillStyle = 'white'; ctx.font = 'bold 40px Arial'; ctx.textAlign = 'center'; const text = state.score > 1 ? "+" + state.score : "Miss"; ctx.fillText(text, canvas.width / 2, canvas.height / 2); }
+            if (state.phase === 'trigger_wait') { ctx.fillStyle = '#f1c40f'; ctx.beginPath(); ctx.arc(cx, cy, 10, 0, Math.PI*2); ctx.fill(); }
+        }
+
+        function drawHeart(x, y, size, color) { ctx.fillStyle = color; ctx.beginPath(); let topCurveHeight = size * 0.3; ctx.moveTo(x, y + topCurveHeight); ctx.bezierCurveTo(x, y, x - size / 2, y, x - size / 2, y + topCurveHeight); ctx.bezierCurveTo(x - size / 2, y + (size + topCurveHeight) / 2, x, y + (size + topCurveHeight) / 2, x, y + size); ctx.bezierCurveTo(x, y + (size + topCurveHeight) / 2, x + size / 2, y + (size + topCurveHeight) / 2, x + size / 2, y + topCurveHeight); ctx.bezierCurveTo(x + size / 2, y, x, y, x, y + topCurveHeight); ctx.fill(); }
+        function drawArrow(x, y, angle) { ctx.save(); ctx.translate(x, y); ctx.rotate(angle); ctx.beginPath(); ctx.moveTo(-20, 0); ctx.lineTo(10, 0); ctx.lineWidth = 3; ctx.strokeStyle = '#f1c40f'; ctx.stroke(); ctx.beginPath(); ctx.moveTo(10, 0); ctx.lineTo(0, -7); ctx.lineTo(0, 7); ctx.fillStyle = '#f1c40f'; ctx.fill(); ctx.restore(); }
+        function gameLoop() { update(); draw(); requestAnimationFrame(gameLoop); }
+    </script>
+</body>
+</html>
